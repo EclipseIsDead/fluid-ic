@@ -1,5 +1,7 @@
 /* Ask for an OpenGL Core Context */
-#define GLFW_INCLUDE_GLCOREARB
+#define GLFW_INCLUDE_NONE  // Macro Redefinition
+#define GL_SILENCE_DEPRECATION  // THERE IS A REASON I AM USING 3.3
+
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include <iostream>
@@ -9,7 +11,7 @@
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
 // Constants and Globals
-const int NUM_PARTICLES = 100;
+const int NUM_PARTICLES = 1;
 
 std::vector<Particle> particles(NUM_PARTICLES);
 
@@ -66,20 +68,22 @@ int main(int argc, char** argv)
     /* Render here */
     glClear(GL_COLOR_BUFFER_BIT);  // Clear the color buffer
 
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(particles) * NUM_PARTICLES, particles.data(), GL_STATIC_DRAW);
+
     // Render particles as points
-    // glPointSize(3.0f);
-    // glBegin(GL_POINTS);
-    // for (const auto& particle : particles)
-    // {
-    //     glColor3f(1.0f, 1.0f, 1.0f);  // Set particle color
-    //     glVertex2f(particle.x, particle.y);
-    // }
-    // glEnd();
+    glPointSize(3);
+    glDrawArrays(GL_POINTS, 0, 1);
+    glColor3f(1.0f, 1.0f, 1.0f); // Set particle color
+    glVertex2f(particles[0].Position.x, particles[0].Position.y);
 
     // Update particles
     updateParticles(particles);
 
-    glFlush();  // Flush the rendering pipeline
+    glFinish();  // Flush the rendering pipeline
 
     glfwSwapBuffers(window);
   }

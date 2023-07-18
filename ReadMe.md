@@ -20,6 +20,6 @@ make
 
 Note:
 - Read CMakeLists.txt for more details on build.
-- Assumes brew install of GLFW3
+- Assumes brew install of GLFW3 and GLM.
 
 If you want, you can delete dependencies and move the include and lib contents to usr/local/include and usr/local/lib respectively. Just adjust the CMakeLists.txt file accordingly.
