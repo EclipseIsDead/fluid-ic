@@ -23,3 +23,7 @@ Note:
 - Assumes brew install of GLFW3 and GLM.
 
 If you want, you can delete dependencies and move the include and lib contents to usr/local/include and usr/local/lib respectively. Just adjust the CMakeLists.txt file accordingly.
+
+## Todo
+- [ ] Hardcoded shader path, should be dynamic on both WIN32 and MacOS.
+- [ ] Better dynamic system?
