@@ -9,7 +9,7 @@ set(CMAKE_REQUIRED_INCLUDES "/usr/local/include")
 include_directories("/usr/local/include")
 
 # Add the source files
-set(SOURCES main/fluid.cpp main/physics.cpp)
+set(SOURCES src/fluid.cpp)
 
 # Find and link against GLFW and GLAD
 find_package(glfw3 REQUIRED)

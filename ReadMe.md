@@ -9,7 +9,7 @@ A minimal fluid simulator in C++.
 
 ## Build
 
-Included fluid in build for an initial executable. To build yourself, run:
+Change the main shader paths in fluid.cpp and use absolute pathing. I will fix this later. Included fluid in build for an initial executable. To build yourself, run:
 
 ```bash
 cd build
