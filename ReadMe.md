@@ -2,6 +2,8 @@
 
 A minimal fluid simulator in C++.
 
+![Demo](https://github.com/EclipseIsDead/fluid-ic/blob/main/demo.gif)
+
 ## Dependencies
 - OpenGL 3.3
 - GLFW3
