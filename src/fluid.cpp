@@ -13,7 +13,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <algorithm>
+#include <random>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
@@ -22,85 +22,44 @@ void processInput(GLFWwindow *window);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-const int WIDTH = 80;
-const int HEIGHT = 60;
-const int ITERATIONS = 20;
+const int NUM_PARTICLES = 10000;
+const float PARTICLE_SIZE = 2.0f;
 
-struct FluidCell {
-    double density;
-    double vx, vy;
+struct Particle {
+    glm::vec2 position;
+    glm::vec2 velocity;
 };
 
-std::vector<FluidCell> fluid(WIDTH * HEIGHT);
-std::vector<char> asciiGrid(WIDTH * HEIGHT);
+std::vector<Particle> particles(NUM_PARTICLES);
 
-const char ASCII_CHARS[] = " .:-=+*#%@";
-const int ASCII_LEVELS = sizeof(ASCII_CHARS) / sizeof(char) - 1;
+// Create a random number generator
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<> dis(-1.0, 1.0);
 
-void initializeFluid() {
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        fluid[i].density = 1.0;
-        fluid[i].vx = 0.0;
-        fluid[i].vy = 0.0;
+// abuse auto because i'm lazy
+void initializeParticles() {
+    for (auto& particle : particles) {
+        particle.position = glm::vec2(dis(gen), dis(gen));
+        particle.velocity = glm::vec2(dis(gen), dis(gen)) * 0.01f;
     }
 }
 
-void addForce(int x, int y, double fx, double fy) {
-    int index = y * WIDTH + x;
-    fluid[index].vx += fx;
-    fluid[index].vy += fy;
-}
+void updateParticles() {
+    for (auto& particle : particles) {
+        particle.position += particle.velocity;
 
-void updateFluid() {
-    std::vector<FluidCell> newFluid(WIDTH * HEIGHT);
-
-    for (int y = 1; y < HEIGHT - 1; y++) {
-        for (int x = 1; x < WIDTH - 1; x++) {
-            int index = y * WIDTH + x;
-            double density = fluid[index].density;
-            double vx = fluid[index].vx;
-            double vy = fluid[index].vy;
-
-            // should upgrade this later
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    int ni = (y + dy) * WIDTH + (x + dx);
-                    newFluid[index].density += fluid[ni].density * 0.2;
-                    newFluid[index].vx += fluid[ni].vx * 0.2;
-                    newFluid[index].vy += fluid[ni].vy * 0.2;
-                }
-            }
-
-            newFluid[index].density /= 9.0;
-            newFluid[index].vx /= 9.0;
-            newFluid[index].vy /= 9.0;
-
-            // apply delta v's
-            int targetX = x + static_cast<int>(vx);
-            int targetY = y + static_cast<int>(vy);
-            targetX = std::max(0, std::min(WIDTH - 1, targetX));
-            targetY = std::max(0, std::min(HEIGHT - 1, targetY));
-            int targetIndex = targetY * WIDTH + targetX;
-
-            newFluid[targetIndex].density += density * 0.8;
-            newFluid[targetIndex].vx += vx * 0.8;
-            newFluid[targetIndex].vy += vy * 0.8;
+        // Simple boundary conditions
+        if (particle.position.x < -1.0f || particle.position.x > 1.0f) {
+            particle.velocity.x *= -1.0f;
         }
-    }
-
-    fluid = newFluid;
-}
-
-void updateAsciiGrid() {
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        double value = std::sqrt(fluid[i].vx * fluid[i].vx + fluid[i].vy * fluid[i].vy);
-        int charIndex = static_cast<int>(value * (ASCII_LEVELS - 1));
-        charIndex = std::max(0, std::min(ASCII_LEVELS - 1, charIndex));
-        asciiGrid[i] = ASCII_CHARS[charIndex];
-
-        if (i == 0) {
-            std::cout << "ASCII char at (0,0): " << asciiGrid[i] << " (int: " << static_cast<int>(asciiGrid[i]) << ")" << std::endl;
+        if (particle.position.y < -1.0f || particle.position.y > 1.0f) {
+            particle.velocity.y *= -1.0f;
         }
+
+        // Apply some "fluid-like" behavior
+        particle.velocity += glm::vec2(0.0f, -0.001f); // Gravity
+        particle.velocity *= 0.99f; // Damping
     }
 }
 
@@ -115,7 +74,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Fluid Simulator", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -131,64 +90,49 @@ int main()
         return -1;
     }
 
-    // grab shaders
-    Shader mainShader("/Users/sid/Documents/Workspace/fluid-ic/src/shaders/vertex.glsl", "/Users/sid/Documents/Workspace/fluid-ic/src/shaders/fragment.glsl");
-    float vertices[] = {
-            -0.5f, -0.5f,
-             0.5f, -0.5f,
-             0.5f,  0.5f,
-            -0.5f,  0.5f
-        };
+    // Create and compile shaders
+    Shader particleShader("/Users/sid/Documents/Workspace/fluid-ic/src/shaders/vertex.glsl", "/Users/sid/Documents/Workspace/fluid-ic/src/shaders/fragment.glsl");
 
-    unsigned int VAO, VBO;
-    glGenVertexArrays(1, &VAO);
+    // Generate a VBO and VAO for particle positions
+    unsigned int VBO, VAO;
     glGenBuffers(1, &VBO);
+    glGenVertexArrays(1, &VAO);
 
     glBindVertexArray(VAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * NUM_PARTICLES, NULL, GL_DYNAMIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
     glEnableVertexAttribArray(0);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    initializeFluid();
+    initializeParticles();
+
+    // Enable point size
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
+
+        // Clear the screen
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Update fluid simulation
-        for (int i = 0; i < ITERATIONS; ++i) {
-            updateFluid();
-        }
-        updateAsciiGrid();
+        // Update particle positions
+        updateParticles();
 
-        mainShader.use();
+        // Update VBO with new particle positions
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec2) * NUM_PARTICLES, &particles[0].position);
+
+        // Render particles
+        particleShader.use();
+        particleShader.setFloat("pointSize", PARTICLE_SIZE);
 
         glBindVertexArray(VAO);
-
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
-                int index = y * WIDTH + x;
-                char c = asciiGrid[index];
-
-                float ndcX = (2.0f * x / WIDTH) - 1.0f + (1.0f / WIDTH);
-                float ndcY = 1.0f - (2.0f * y / HEIGHT) - (1.0f / HEIGHT);
-
-                mainShader.setVec2("charPosition", ndcX, ndcY);
-                mainShader.setInt("asciiChar", static_cast<int>(c));
-
-                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-                if (x == 0 && y == 0) {
-                    std::cout << "Rendering point at (" << ndcX << ", " << ndcY << ")" << std::endl;
-                }
-            }
-        }
+        glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -211,7 +155,5 @@ void processInput(GLFWwindow *window)
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and
-    // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
