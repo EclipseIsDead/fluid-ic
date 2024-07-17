@@ -1,6 +1,6 @@
 # Fluid-ic
 
-A minimal fluid simulator in C++.
+A minimal fluid simulator in C++ (mov -> gif converter killed the fps).
 
 ![Demo](https://github.com/EclipseIsDead/fluid-ic/blob/main/demo.gif)
 
